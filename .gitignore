@@ -1,0 +1,93 @@
+# ==========================
+# Python / Virtual Env
+# ==========================
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+.env
+env/
+venv/
+ENV/
+Pipfile.lock
+poetry.lock
+
+# ==========================
+# IDE / Editor Files
+# ==========================
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Logs & Temp Files
+# ==========================
+*.log
+*.out
+*.tmp
+*.bak
+
+# ==========================
+# Notebooks & Checkpoints
+# ==========================
+.ipynb_checkpoints/
+*.ipynb_save
+notebooks/.ipynb_checkpoints/
+
+# ==========================
+# Data (never upload datasets)
+# ==========================
+data_raw/
+data_proc/
+datasets/
+*.csv~
+*.npz
+*.npy
+*.h5
+*.pkl
+*.jsonl
+
+# ==========================
+# Model Checkpoints / Outputs
+# ==========================
+checkpoints/
+runs/
+outputs/
+wandb/
+lightning_logs/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# ==========================
+# Build / Dist / Reports
+# ==========================
+build/
+dist/
+*.egg-info/
+reports/
+*.pdf
+*.html
+
+# ==========================
+# OS-specific
+# ==========================
+.DS_Store
+ehthumbs.db
+Icon?
+desktop.ini
+
+# ==========================
+# Colab / Cloud Cache
+# ==========================
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+__MACOSX/
+drive/
+gdrive/
