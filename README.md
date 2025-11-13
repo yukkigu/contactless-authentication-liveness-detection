@@ -7,6 +7,7 @@
 ### 📌 Problem Statement
 
 With the advancement of technology in the biometric field, healthcare facilities are adopting contactless authentication methods to improve security, efficiency, and patient safety. While contactless check-in systems aren’t necessary for every clinic, they can provide additional value in busy clinics where hygiene, efficiency, and accessibility are crucial.
+
 However, current facial authentication systems are vulnerable to spoofing attacks. Our project aims to develop a secure facial recognition system that verifies user identity while maintaining privacy.
 
 ### 🎯 Objectives
