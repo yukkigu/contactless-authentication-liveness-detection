@@ -40,7 +40,7 @@ notebooks/.ipynb_checkpoints/
 # Data (never upload datasets)
 # ==========================
 data_raw/
-data_proc/
+data_processed/
 datasets/
 *.csv~
 *.npz
@@ -75,7 +75,6 @@ reports/
 # ==========================
 # OS-specific
 # ==========================
-.DS_Store
 ehthumbs.db
 Icon?
 desktop.ini
