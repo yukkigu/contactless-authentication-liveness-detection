@@ -98,6 +98,7 @@ def embed_sharded(manifest_path, out_dir, batch_size=128, image_size=160, shard_
     shard_map_rows = []
     total_processed = 0
 
+    # function to flush current shard to disk to avoid large memory usage
     def flush_shard(si):
         if not shard_embeddings:
             return
@@ -176,6 +177,8 @@ def embed_sharded(manifest_path, out_dir, batch_size=128, image_size=160, shard_
     total_processed += len(shard_embeddings)
     LOGGER.info("Total new embeddings produced: %d", total_processed)
 
+# merge all shard .npy and .csv files into single outputs for easier downstream loading and evaluation
+# drop any failed embeddings (embedding_index == -1) from final outputs
 def merge_shards(out_dir, out_emb_name="embeddings.npy", out_map_name="embeddings_map.csv"):
     out = Path(out_dir)
     shard_embs = sorted(out.glob("embeddings_shard_*.npy"))
@@ -237,6 +240,7 @@ def merge_shards(out_dir, out_emb_name="embeddings.npy", out_map_name="embedding
     LOGGER.info("Merged embeddings -> %s (rows=%d)", emb_path, all_emb.shape[0])
     LOGGER.info("Merged map -> %s (rows=%d)", map_path, all_map.shape[0])
 
+# print status of embedding output directory
 def status(out_dir):
     out = Path(out_dir)
     shards = list(out.glob("embeddings_shard_*.npy"))
@@ -249,6 +253,7 @@ def status(out_dir):
     print("final embeddings exists:", final_emb.exists())
     print("final map exists:", final_map.exists())
 
+# ----- Main CLI -----
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
