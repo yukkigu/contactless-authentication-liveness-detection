@@ -22,4 +22,5 @@ However, current facial authentication systems are vulnerable to spoofing attack
 | Dataset  | Purpose            | Description                                                                        |
 | -------- | ------------------ | ---------------------------------------------------------------------------------- |
 | VGGFace2 | Identity Check     | 3 million images, 9000+ individuals (10+ images per person) with lots of diversity |
-| iBeta1   | Liveness Detection | 42,000+ video attacks of 7 different types (for spoofing detection)                |
+| Face Anti-Spoofing Dataset from NUAA   | Liveness Detection |  Over 4,000 images including real person and fake person data
+|
