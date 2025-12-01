@@ -21,7 +21,7 @@ from PIL import Image
 import torch
 from facenet_pytorch import InceptionResnetV1
 from tqdm.auto import tqdm
-import sys
+import os
 
 LOGGER = logging.getLogger("embeddings")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -29,10 +29,35 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 # load manifest.csv to dataframe and return cropped or image path
 def load_manifest(manifest_path):
     df = pd.read_csv(manifest_path)
-    if "crop_path" in df.columns:
-        path_col = "crop_path"
-    else:
-        path_col = "image_path"
+    # pick path column (existing behavior)
+    path_col = "image_path" if "image_path" in df.columns else df.columns[0]
+    repo_root = Path(__file__).resolve().parents[1]  # repo root
+    
+    def _find_and_rel(p):
+        p = str(p)
+        cand = Path(p)
+        if cand.exists():
+            found = cand.resolve()
+        else:
+            # try relative to manifest parent
+            mparent = Path(manifest_path).parent
+            c2 = (mparent / p)
+            if c2.exists():
+                found = c2.resolve()
+            else:
+                # try relative to repo root
+                c3 = (repo_root / p)
+                if c3.exists():
+                    found = c3.resolve()
+                else:
+                    # fallback: return original string (file missing)
+                    return p
+        # return repo-relative path if possible (keeps manifest portable)
+        try:
+            return os.path.relpath(found, repo_root).replace("\\", "/")
+        except Exception:
+            return str(found)
+    df[path_col] = df[path_col].astype(str).map(_find_and_rel)
     return df, path_col
 
 # convert string path to Path object
@@ -40,6 +65,11 @@ def resolve_path(p_str):
     p = Path(p_str)
     if p.is_absolute():
         return p
+    # resolve relative paths relative to repo root
+    repo_root = Path(__file__).resolve().parents[1]
+    cand = (repo_root / p)
+    if cand.exists():
+        return cand
     return Path.cwd() / p
 
 # resizes an image and convert to RGB
@@ -59,14 +89,26 @@ def l2_norm_rows(x):
 # scan existing shard map files to find already processed image paths 
 def existing_processed_paths(out_dir):
     out = Path(out_dir)
+    # find all existing shard map files
     maps = list(out.glob("*_map_shard_*.csv")) + list(out.glob("embeddings_map_shard_*.csv"))
     processed = set()
+    # get repo root for relative path resolution
+    repo_root = Path(__file__).resolve().parents[1]
     for m in maps:
         try:
             df = pd.read_csv(m)
             if "image_path" in df.columns:
-                processed.update(df["image_path"].astype(str).tolist())
-        # skip already embedded images
+                for v in df["image_path"].astype(str).tolist():
+                    p = Path(v)
+                    # convert to repo-relative posix string
+                    if p.is_absolute():
+                        try:
+                            processed.add(Path(os.path.relpath(p, repo_root)).as_posix())
+                        except Exception:
+                            processed.add(str(p))
+                    else:
+                        # keep repo-relative / normalized posix string
+                        processed.add(Path(v).as_posix())
         except Exception:
             continue
     return processed

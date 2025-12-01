@@ -13,13 +13,13 @@ import cv2
 # 3D model points chosen as approximate coordinates for nose, left eye, right eye, left mouth, right mouth
 _MODEL_POINTS_5 = np.array([
     (0.0, 0.0, 0.0),        # nose tip
-    (-30.0, 30.0, -20.0),   # left eye (approx)
-    (30.0, 30.0, -20.0),    # right eye (approx)
-    (-25.0, -25.0, -20.0),  # left mouth corner (approx)
-    (25.0, -25.0, -20.0)    # right mouth corner (approx)
+    (-35.0, 25.0, -30.0),   # left eye (approx)
+    (35.0, 25.0, -30.0),    # right eye (approx)
+    (-30.0, -30.0, -25.0),  # left mouth corner (approx)
+    (30.0, -30.0, -25.0)    # right mouth corner (approx)
 ], dtype=np.float64)
 
-def landmarks_to_pose_5(landmarks, image_size):
+def landmarks_to_pose(landmarks, image_size):
     """
     landmarks: (5,2) in order [left_eye, right_eye, nose, mouth_left, mouth_right]
     image_size: (width, height)
@@ -50,7 +50,16 @@ def landmarks_to_pose_5(landmarks, image_size):
         dist_coeffs = np.zeros((4, 1))
 
         # Need at least 4 points. We have 5 -> ok.
-        ok, rvec, tvec = cv2.solvePnP(_MODEL_POINTS_5, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
+        try:
+            ok, rvec, tvec = cv2.solvePnP(
+                _MODEL_POINTS_5, 
+                image_points, 
+                camera_matrix, 
+                dist_coeffs, 
+                flags=cv2.SOLVEPNP_EPNP
+            )
+        except cv2.error:
+            return np.nan, np.nan, np.nan
         if not ok:
             return np.nan, np.nan, np.nan
         rmat, _ = cv2.Rodrigues(rvec)
