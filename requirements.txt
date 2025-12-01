@@ -1,0 +1,28 @@
+# """
+# requirements.txt
+
+# Requirements for contactless-authentication-liveness-detection
+# Usage:
+#   - Use pip to install these into a venv:  python -m pip install -r requirements.txt
+
+# """
+
+jupyterlab
+ipykernel
+pandas
+numpy==2.2.6
+scipy
+tqdm
+pillow>=10.2.0
+torch
+torchvision
+torchaudio
+facenet-pytorch
+imagehash
+opencv-python-headless
+faiss-cpu
+scikit-learn
+matplotlib
+seaborn
+
+# End of file
