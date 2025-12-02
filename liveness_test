@@ -1,0 +1,324 @@
+#Reference code: https://github.com/Aminur01/Face-Liveness-detection-using-CNN/tree/master
+
+import os, sys, math, pathlib
+import numpy as np
+import pandas as pd
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
+
+import tensorflow as tf
+from tensorflow import keras
+from keras.layers import Dense, Dropout, Flatten, Activation
+import itertools
+import shutil
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import layers, models, callbacks, optimizers
+
+from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.utils.class_weight import compute_class_weight
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
+from sklearn.metrics import classification_report, confusion_matrix
+import numpy as np
+import math
+
+
+
+tf.random.set_seed(101)
+np.random.seed(101)
+
+import os
+import pandas as pd
+from google.colab import drive
+drive.mount('/content/drive')
+
+base = "/content/drive/MyDrive/raw"
+
+# to test if its actually working
+import os
+print(os.path.exists(base))
+print(os.listdir(base))
+
+rows = []
+
+for cls in ["ClientRaw", "ImposterRaw"]:
+    folder = os.path.join(base, cls)
+    for person_folder in os.listdir(folder):
+        person_path = os.path.join(folder, person_folder)
+        if not os.path.isdir(person_path):
+            continue
+        for f in os.listdir(person_path):
+            if f.lower().endswith((".jpg", ".jpeg", ".png")):
+                rows.append({
+                    "class": cls,
+                    "filename": f,
+                    "person": person_folder,
+                    "path": os.path.join(cls, person_folder, f)
+                })
+
+df = pd.DataFrame(rows)
+print(df.head())
+print(df.shape)
+
+
+from sklearn.model_selection import train_test_split
+
+# Get unique person IDs
+people = df['person'].unique()
+
+# train/val split
+train_people, val_people = train_test_split(
+    people, test_size=0.2, random_state=42
+)
+
+#  train/val dataframes
+df_train = df[df['person'].isin(train_people)]
+df_val   = df[df['person'].isin(val_people)]
+
+print("Training persons:", len(train_people))
+print("Validation persons:", len(val_people))
+
+# label the data as live or spoof (1 or 0) and save as csv
+live_dir = os.path.join(base, "ClientRaw")
+spoof_dir = os.path.join(base, "ImposterRaw")
+
+df_client = pd.DataFrame({
+    "path": [os.path.join("ClientRaw", x) for x in os.listdir(live_dir)],
+    "label": 1
+})
+
+df_impost = pd.DataFrame({
+    "path": [os.path.join("ImposterRaw", x) for x in os.listdir(spoof_dir)],
+    "label": 0
+})
+
+df_client.to_csv(os.path.join(base, "client_label.csv"), index=True)
+df_impost.to_csv(os.path.join(base, "imposter_label.csv"), index=True)
+
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+# Combine all persons from real and fake
+all_persons = list(set(df_client['path'].apply(lambda x: x.split('/')[1])) |
+                   set(df_impost['path'].apply(lambda x: x.split('/')[1])))
+
+# Split persons
+train_people, val_people = train_test_split(all_persons, test_size=0.2, random_state=42)
+
+# Convert to set for fast lookup
+train_people = set(train_people)
+val_people   = set(val_people)
+
+# Filter train/val lists based on person ID
+train_list  = [p for p in df_client['path'].tolist() if p.split('/')[1] in train_people]
+train_list0 = [p for p in df_impost['path'].tolist() if p.split('/')[1] in train_people]
+
+val_list    = [p for p in df_client['path'].tolist() if p.split('/')[1] in val_people]
+val_list0   = [p for p in df_impost['path'].tolist() if p.split('/')[1] in val_people]
+
+import os
+
+train_dir = os.path.join(base, 'train_dir')
+os.makedirs(train_dir, exist_ok=True)  # create train_dir if not exists
+
+# create subfolders for labels
+for label in ['client_image', 'imposed_image']:
+    os.makedirs(os.path.join(train_dir, label), exist_ok=True)
+
+import os
+
+val_dir = os.path.join(base, 'val_dir')
+os.makedirs(val_dir, exist_ok=True)  # create val_dir if not exists
+
+# create subfolders for labels
+for label in ['client_image', 'imposed_image']:
+    os.makedirs(os.path.join(val_dir, label), exist_ok=True)
+
+import os
+import shutil
+
+count = 0
+
+for image in train_list:
+    target = df_client.loc[df_client['path'] == image, 'label'].values[0]
+    label = 'client_image' if target == 1 else 'imposed_image'
+
+    folder_path = os.path.join(base, image)
+    files = os.listdir(folder_path)
+
+    print(f"[Folder] {image} → {len(files)} files")
+
+    for file_name in files:
+        count += 1
+        print(f"Copying file #{count}: {file_name}")
+
+        src_file = os.path.join(folder_path, file_name)
+        dst_file = os.path.join(train_dir, label, file_name)
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+        shutil.copyfile(src_file, dst_file)
+
+
+# --- Train fake images ---
+for image in train_list0:
+    target = df_impost.loc[df_impost['path'] == image, 'label'].values[0]
+    label = 'client_image' if target == 1 else 'imposed_image'
+
+    folder_path = os.path.join(base, image)
+    files = os.listdir(folder_path)
+    for file_name in files:
+        src_file = os.path.join(folder_path, file_name)
+        dst_file = os.path.join(train_dir, label, file_name)
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+        shutil.copyfile(src_file, dst_file)
+
+# --- Validation real images ---
+for image in val_list:
+    target = df_client.loc[df_client['path'] == image, 'label'].values[0]
+    label = 'client_image' if target == 1 else 'imposed_image'
+
+    folder_path = os.path.join(base, image)
+    files = os.listdir(folder_path)
+    for file_name in files:
+        src_file = os.path.join(folder_path, file_name)
+        dst_file = os.path.join(val_dir, label, file_name)
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+        shutil.copyfile(src_file, dst_file)
+
+
+# --- Validation fake images ---
+for image in val_list0:
+    target = df_impost.loc[df_impost['path'] == image, 'label'].values[0]
+    label = 'client_image' if target == 1 else 'imposed_image'
+
+    folder_path = os.path.join(base, image)
+    files = os.listdir(folder_path)
+    for file_name in files:
+        src_file = os.path.join(folder_path, file_name)
+        dst_file = os.path.join(val_dir, label, file_name)
+        os.makedirs(os.path.dirname(dst_file), exist_ok=True)
+        shutil.copyfile(src_file, dst_file)
+
+
+train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=10,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True,
+    zoom_range=0.1
+)
+
+val_datagen = ImageDataGenerator(rescale=1./255)
+
+train_gen = train_datagen.flow_from_directory(
+    train_dir,
+    target_size=(203, 203),
+    batch_size=32,
+    class_mode='binary',
+    shuffle=True,
+    classes=['imposed_image', 'client_image']  # 0=spoof, 1=real
+)
+
+val_gen = val_datagen.flow_from_directory(
+    val_dir,
+    target_size=(203, 203),
+    batch_size=32,
+    class_mode='binary',
+    shuffle=False,                           # DO NOT shuffle validation
+    classes=['imposed_image', 'client_image'] # MUST match identical order
+)
+
+train_labels = train_gen.classes
+
+class_weights = compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(train_labels),
+    y=train_labels
+)
+
+class_weights_dict = {
+    int(c): w for c, w in zip(np.unique(train_labels), class_weights)
+}
+
+print("Class weights:", class_weights_dict)
+
+base_model = MobileNetV2(
+    weights='imagenet',       # if no internet, change to None
+    include_top=False,
+    input_shape=(203, 203, 3)
+)
+
+# freeze backbone at first
+base_model.trainable = False
+
+x = base_model.output
+x = GlobalAveragePooling2D()(x)
+x = Dropout(0.5)(x)
+output = Dense(1, activation='sigmoid')(x)   # binary output: spoof vs real
+
+model = Model(inputs=base_model.input, outputs=output)
+
+model.compile(
+    optimizer='adam',
+    loss='binary_crossentropy',
+    metrics=['accuracy']
+)
+
+model.summary()
+
+
+early = EarlyStopping(
+    monitor='val_loss',
+    patience=3,
+    restore_best_weights=True
+)
+
+reduce_lr = ReduceLROnPlateau(
+    monitor='val_loss',
+    factor=0.5,
+    patience=2,
+    verbose=1
+)
+
+checkpoint = ModelCheckpoint(
+    'best_cnn_liveness.h5',
+    monitor='val_loss',
+    save_best_only=True,
+    verbose=1
+)
+
+history = model.fit(
+    train_gen,
+    epochs=5,                         # let EarlyStopping stop earlier if needed
+    validation_data=val_gen,
+    class_weight=class_weights_dict,
+    callbacks=[early, reduce_lr, checkpoint]
+)
+
+
+
+val_loss, val_acc = model.evaluate(val_gen)
+print("Keras evaluate() val_acc:", val_acc)
+
+# classification_report + confusion_matrix
+val_gen.reset()
+steps = math.ceil(val_gen.samples / val_gen.batch_size)
+
+preds = model.predict(val_gen, steps=steps, verbose=1)
+y_pred = (preds > 0.5).astype(int).ravel()
+
+y_true = val_gen.classes[:len(y_pred)]
+
+print("Shapes:", y_true.shape, y_pred.shape)
+print(classification_report(y_true, y_pred))
+print(confusion_matrix(y_true, y_pred))
+
+
