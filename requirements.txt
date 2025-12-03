@@ -24,5 +24,7 @@ faiss-cpu
 scikit-learn
 matplotlib
 seaborn
+streamlit
+tensorflow
 
 # End of file
