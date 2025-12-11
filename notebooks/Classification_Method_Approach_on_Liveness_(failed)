@@ -1,0 +1,223 @@
+#Reference code: https://github.com/Aminur01/Face-Liveness-detection-using-CNN/tree/master
+# Regardless of high accuracy, When used saved file (the model) on streamlit app on unseen data, the model completely failed regardless of high accuracy
+#This made us realize identity leakage on dataset, where later on fixed on success model
+
+import os, sys, math, pathlib
+import numpy as np
+import pandas as pd
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
+
+import tensorflow as tf
+from tensorflow import keras
+from keras.layers import Dense, Dropout, Flatten, Activation
+import itertools
+import shutil
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras import layers, models, callbacks, optimizers
+
+from sklearn.model_selection import train_test_split
+from sklearn.utils.class_weight import compute_class_weight
+
+
+tf.random.set_seed(101)
+np.random.seed(101)
+
+
+import os
+import pandas as pd
+from google.colab import drive
+drive.mount('/content/drive')
+
+base = "/content/drive/MyDrive/raw"
+
+
+# to test if its actually working
+import os
+print(os.path.exists(base))
+print(os.listdir(base))
+
+
+print("Base path:", base)
+print("Base exists:", os.path.exists(base))
+print("Base folders:", os.listdir(base))
+
+
+import os
+import cv2
+import glob
+import numpy as np
+
+DATASET_DIR = base  # "/content/drive/MyDrive/raw"
+
+X = []
+y = []
+
+# Folder names must match EXACTLY (case-sensitive)
+label_map = {"ClientRaw": 1, "ImposterRaw": 0}
+
+IMAGE_SIZE = 32  # resize to 32x32
+
+for folder_name, label in label_map.items():
+    folder = os.path.join(DATASET_DIR, folder_name)
+    print(f"Looking in: {folder}")
+    print("  Exists?", os.path.exists(folder))
+
+    # Recursively find all files under this folder
+    pattern = os.path.join(folder, "**", "*.*")
+    image_paths = glob.glob(pattern, recursive=True)
+
+    print(f"  Found {len(image_paths)} files (before filtering)")
+
+    for img_path in image_paths:
+        # keep only typical image extensions
+        if not img_path.lower().endswith((".jpg", ".jpeg", ".png", ".bmp")):
+            continue
+
+        img = cv2.imread(img_path)
+        if img is None:
+            continue
+
+        img = cv2.resize(img, (IMAGE_SIZE, IMAGE_SIZE))
+        X.append(img.flatten())
+        y.append(label)
+
+X = np.array(X, dtype="float32") / 255.0  # normalize
+y = np.array(y)
+
+print("Data loaded:", X.shape, y.shape)
+
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(X_train.shape, X_test.shape)
+
+
+
+from sklearn.linear_model import LogisticRegression
+
+lr = LogisticRegression(max_iter=2000)
+lr.fit(X_train, y_train)
+
+print("Logistic Regression accuracy:", lr.score(X_test, y_test))
+
+
+
+from sklearn.ensemble import RandomForestClassifier
+
+rf = RandomForestClassifier(n_estimators=200, random_state=42)
+rf.fit(X_train, y_train)
+
+print("Random Forest accuracy:", rf.score(X_test, y_test))
+
+
+from sklearn.svm import SVC
+
+svm = SVC(kernel="linear", random_state=42)
+svm.fit(X_train, y_train)
+
+print("SVM accuracy:", svm.score(X_test, y_test))
+
+
+
+from sklearn.metrics import classification_report, confusion_matrix
+
+y_pred = svm.predict(X_test)
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+
+
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+print(X_train.shape, X_test.shape)
+
+
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+
+n_components = 100  # PCA dimensionality
+
+pipe_lr_pca = Pipeline([
+    ("scaler", StandardScaler()),          # standardize features
+    ("pca", PCA(n_components=n_components)),
+    ("clf", LogisticRegression(max_iter=2000))
+])
+
+pipe_lr_pca.fit(X_train, y_train)
+
+y_pred_lr = pipe_lr_pca.predict(X_test)
+lr_pca_acc = accuracy_score(y_test, y_pred_lr)
+
+print(f"Logistic Regression + PCA ({n_components} comps) accuracy: {lr_pca_acc:.4f}")
+print("\nClassification report (LogReg + PCA):")
+print(classification_report(y_test, y_pred_lr))
+
+
+
+from sklearn.svm import SVC
+
+pipe_svm_pca = Pipeline([
+    ("scaler", StandardScaler()),
+    ("pca", PCA(n_components=n_components)),
+    ("clf", SVC(kernel="linear"))  # you can try 'rbf' too
+])
+
+pipe_svm_pca.fit(X_train, y_train)
+
+y_pred_svm = pipe_svm_pca.predict(X_test)
+svm_pca_acc = accuracy_score(y_test, y_pred_svm)
+
+print(f"SVM + PCA ({n_components} comps) accuracy: {svm_pca_acc:.4f}")
+print("\nClassification report (SVM + PCA):")
+print(classification_report(y_test, y_pred_svm))
+
+
+from sklearn.ensemble import RandomForestClassifier
+
+pipe_rf_pca = Pipeline([
+    ("scaler", StandardScaler()),
+    ("pca", PCA(n_components=n_components)),
+    ("clf", RandomForestClassifier(
+        n_estimators=200,
+        random_state=42
+    ))
+])
+
+pipe_rf_pca.fit(X_train, y_train)
+
+y_pred_rf = pipe_rf_pca.predict(X_test)
+rf_pca_acc = accuracy_score(y_test, y_pred_rf)
+
+print(f"Random Forest + PCA ({n_components} comps) accuracy: {rf_pca_acc:.4f}")
+print("\nClassification report (RF + PCA):")
+print(classification_report(y_test, y_pred_rf))
+
+
+import joblib
+
+# suppose this is your pipeline
+# pipe_lr_pca = Pipeline([...])
+
+joblib.dump(pipe_lr_pca, "client_imposter_pca_lr.pkl")
+print("Saved PCA+LR model to client_imposter_pca_lr.pkl")
+
+
